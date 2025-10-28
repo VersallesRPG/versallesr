@@ -1,0 +1,37 @@
+{
+  "name": "versalles-rpg-next",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "@infinity-js/core": "^LATEST_VERSION", 
+    "@stripe/stripe-js": "^3.3.0", 
+    "firebase": "^10.12.2", 
+    "firebase-admin": "^12.1.0",
+    "iron-session": "^8.0.1", 
+    "mercadopago": "^2.0.8",
+    "mongoose": "^8.3.4", 
+    "next": "14.2.3", 
+    "react": "^18",
+    "react-dom": "^18",
+    "stripe": "^15.6.0" 
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.4.19", 
+    "eslint": "^8",
+    "eslint-config-next": "14.2.3",
+    "postcss": "^8.4.38", 
+    "prettier": "^3.2.5", 
+    "tailwindcss": "^3.4.3", 
+    "typescript": "^5"
+  }
+}

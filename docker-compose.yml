@@ -1,0 +1,90 @@
+# docker-compose.yml - Configuração de Produção para Versalles RPG
+
+version: "3.8" # Use uma versão recente do Docker Compose
+
+services:
+  # Serviço da Aplicação Next.js
+  next-app:
+    container_name: versalles_next_app
+    build:
+      context: . # Assume que o Dockerfile está na raiz do projeto
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      # NÃO expor diretamente na produção, Nginx fará isso.
+      # Apenas para comunicação interna ou debug se necessário:
+      - "127.0.0.1:3000:3000" # Mapeia a porta 3000 do container para localhost:3000 do host
+    networks:
+      - versalles-network # Conecta à rede interna
+    depends_on:
+      - mongo # Garante que o banco de dados inicie antes da aplicação
+    env_file:
+      - .env.local # Carrega as variáveis de ambiente do arquivo .env.local
+    volumes:
+      # Mapeia a pasta de uploads para ser potencialmente servida pelo Nginx
+      # Substitua /path/to/your/uploads/on/vps pelo caminho real na sua VPS
+      - /path/to/your/uploads/on/vps:/app/public/uploads # Exemplo se o Next.js servir; melhor servir via Nginx
+      # Para o Next.js usar o cache de build:
+      - ./.next:/app/.next
+    environment:
+      # Garante que o Next.js rode em modo produção
+      - NODE_ENV=production
+      # Expõe a URL interna do MongoDB para a aplicação Next.js
+      - MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongo:27017/${MONGO_DB_NAME}?authSource=admin
+
+  # Serviço do Banco de Dados MongoDB
+  mongo:
+    container_name: versalles_mongo_db
+    image: mongo:6 # Use uma versão específica do MongoDB (ex: 6 ou 7)
+    restart: always
+    networks:
+      - versalles-network # Conecta à rede interna
+    volumes:
+      # Mapeia um volume nomeado para persistir os dados do MongoDB
+      - mongo-data:/data/db
+      # Opcional: Scripts de inicialização (ex: criar usuário da aplicação)
+      # - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    environment:
+      # Credenciais do usuário ROOT do MongoDB (serão usadas para criar o usuário da aplicação)
+      # Use as mesmas variáveis definidas no .env.local ou defina novas específicas aqui
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER} # Variável vinda do .env.local
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD} # Variável vinda do .env.local
+      # Credenciais para o usuário específico da APLICAÇÃO (recomendado)
+      MONGO_APP_USER: ${MONGO_APP_USER} # Variável vinda do .env.local
+      MONGO_APP_PASSWORD: ${MONGO_APP_PASSWORD} # Variável vinda do .env.local
+      MONGO_DB_NAME: ${MONGO_DB_NAME} # Variável vinda do .env.local
+    # NÃO exponha a porta 27017 publicamente na VPS por segurança.
+    # A comunicação será feita pela rede interna do Docker.
+
+  # Serviço do Reverse Proxy (Nginx)
+  nginx:
+    container_name: versalles_nginx_proxy
+    image: nginx:alpine
+    restart: always
+    ports:
+      # Expõe as portas HTTP e HTTPS publicamente na VPS
+      - "80:80"
+      - "443:443"
+    networks:
+      - versalles-network # Conecta à rede interna
+    depends_on:
+      - next-app # Nginx precisa que a aplicação esteja rodando para encaminhar tráfego
+    volumes:
+      # Mapeia seu arquivo de configuração customizado do Nginx
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro # :ro = read-only
+      # Mapeia a pasta onde você armazena os certificados SSL (ex: Let's Encrypt)
+      # Substitua /etc/letsencrypt pelo caminho real na sua VPS
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      # Mapeia a pasta de uploads para Nginx servir diretamente (mais eficiente)
+      # Use o mesmo caminho do volume mapeado em 'next-app' se ele existir lá
+      - /path/to/your/uploads/on/vps:/var/www/uploads:ro
+
+# Define a rede interna para comunicação entre os containers
+networks:
+  versalles-network:
+    driver: bridge
+
+# Define os volumes nomeados para persistência de dados
+volumes:
+  mongo-data:
+    driver: local # Usa o driver de volume local padrão do Docker
